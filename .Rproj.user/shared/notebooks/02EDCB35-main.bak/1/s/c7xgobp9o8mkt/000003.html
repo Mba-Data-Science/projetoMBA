@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>body{background-color:white;}</style>
+<script src="lib/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="lib/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="lib/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="lib/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="lib/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="lib/kePrint-0.0.1/kePrint.js"></script>
+<link href="lib/lightable-0.0.1/lightable.css" rel="stylesheet" />
+
+</head>
+<body>
+<table class="table table-striped" style="font-size: 12px; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">Estabelecimento</caption>
+ <thead>
+  <tr>
+   <th style="text-align:left;"> variable </th>
+   <th style="text-align:left;"> classe </th>
+   <th style="text-align:left;"> first_values </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> cnpj </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> 00055909000147, 00056601000116, 00059273000101, 00060706000149, 00060714000195, 00062474000168 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> nome </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> PASCALE MODAS, CARDOSO CALCADOS, ISA CALCADOS, HIGT TECH TELECOMUNICACOES INFORMATICA E ENGENHARIA, FRIO LAR, ROSTO E CORPO </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> tipo </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> MATRIZ, MATRIZ, MATRIZ, MATRIZ, MATRIZ, MATRIZ </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> situacao </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> BAIXADA, BAIXADA, BAIXADA, INAPTA, BAIXADA, INAPTA </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> dataSituacao </td>
+   <td style="text-align:left;"> double </td>
+   <td style="text-align:left;"> 1994-11-30, 2008-12-31, 1994-12-23, 2018-11-07, 2013-04-22, 2018-11-07 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> dataAtividade </td>
+   <td style="text-align:left;"> double </td>
+   <td style="text-align:left;"> 1994-04-29, 1994-05-02, 1994-05-04, 1994-05-05, 1994-05-05, 1994-05-09 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> cnaePrincipal </td>
+   <td style="text-align:left;"> integer </td>
+   <td style="text-align:left;"> 4781400, 4782201, 4782201, 4751201, 4753900, 4772500 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> cnaeSecundario </td>
+   <td style="text-align:left;"> list </td>
+   <td style="text-align:left;"> , , , , 4759899, c("9602502", "9602501") </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> endereco </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> CONJUNTO PARQUE PIAUI, QDA 36 CASA 01 - PARQUE PIAUI, TERESINA - PI, , RUA PROFA SINHA BORGES,  3205 - BUENOS AIRES, TERESINA - PI, , RUA ALAMEDA PARNAIBA, SALA A 1623 - MATINHA, TERESINA - PI, , RUA COELHO DE RESENDE, NORTE 135 - CENTRO, TERESINA - PI, , AVENIDA NACOES UNIDAS, SUL 1375 - VERMELHA, TERESINA - PI, , RUA 7 DE SETEMBRO, ZONA SUL 2214 - MACAUBA, TERESINA - PI, </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> cep </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> 64025100, 64009480, 64003200, 64000370, 64019230, 64018630 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> razaoSociao </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> CARLA CARDOSO BARBOSA VARIEDADES, MARIA A DA SILVA CARDOSO, IZABEL MARTINS DE SOUSA, O C N COMERCIO E REPRESENTACOES LTDA, FRIO LAR LTDA, TOBIAS FROTA LEITAO </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> capital </td>
+   <td style="text-align:left;"> double </td>
+   <td style="text-align:left;"> 0, 0, 0, 0, 0, 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> porte </td>
+   <td style="text-align:left;"> character </td>
+   <td style="text-align:left;"> DEMAIS, MICRO EMPRESA, DEMAIS, MICRO EMPRESA, DEMAIS, DEMAIS </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> cnaes </td>
+   <td style="text-align:left;"> list </td>
+   <td style="text-align:left;"> c("4781400", ""), c("4782201", ""), c("4782201", ""), c("4751201", ""), c("4753900", "4759899"), c("4772500", "9602502", "9602501") </td>
+  </tr>
+</tbody>
+</table> <script type="text/x-mathjax-config">MathJax.Hub.Config({tex2jax: {inlineMath: [["$","$"]]}})</script><script async src="https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>
