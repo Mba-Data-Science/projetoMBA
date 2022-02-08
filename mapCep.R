@@ -1,4 +1,4 @@
-pacotes <- c("RSelenium", "tidyverse", "foreach", "doParallel")
+pacotes <- c("RSelenium", "tidyverse", "foreach", "doParallel", "flock", "DBI", "RSQLite")
 
 if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
   instalador <- pacotes[!pacotes %in% installed.packages()]
@@ -10,41 +10,67 @@ if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
   sapply(pacotes, require, character = T)
 }
 
+zoom_firefox <- function(client, percent)
+{
+  store_page <- client$getCurrentUrl()[[1]]
+  client$navigate("about:preferences")
+  webElem <- client$findElement("css", "#defaultZoom")
+  webElem$clickElement()
+  webElem$sendKeysToElement(list(as.character(percent)))
+  webElem$sendKeysToElement(list(key = "return"))
+  client$navigate(store_page)
+}
+
 openDriverFirefox <- function(num) {
-  rD <- rsDriver(browser = "firefox", port = 4545L + num, verbose = FALSE)
-  diver <- rD[["client"]]
-  diver$setWindowSize(1, 1)
-  return(list(diver, rD))
+  fprof <- makeFirefoxProfile(list(
+    "webdriver.load.strategy" = "eager"
+  ))
+  rD <- rsDriver(browser = "firefox", port = 4545L + num * 1L, verbose = FALSE, extraCapabilities = fprof)
+  driver <- rD[["client"]]
+  driver$setTimeout(type = "page load", milliseconds = 10000)
+  driver$setWindowSize(800, 800)
+  url <- "https://www.google.com.br/maps"
+  driver$navigate(url)
+  zoom_firefox(driver, 500)
+  driver$screenshot(display = TRUE)
+  return(list(driver, rD))
 }
 
 findCoords <- function(url) {
-  coords <- str_match(url, "@([-/.0-9]+,[-/.0-9]+)")[2]
-  return(if (is.na(coords)) "" else coords)
+  coords <- str_match(url, "@(-5[/.0-9]+,-42[/.0-9]+)")[2]
+  coordRet <- if (is.na(coords)) "" else coords
+  if (coordRet == "")
+    print(url)
+  return(coordRet)
 }
 
 addressToCoords <- function(driver, address) {
   url <- "https://www.google.com.br/maps"
   driver$navigate(url)
-  coord <- ""
-  webElem <- NULL
+
+  webElem <- driver$findElement(using = 'id', "searchboxinput")
   while (is.null(webElem)) {
     webElem <- driver$findElement(using = 'id', "searchboxinput")
-    randsleep <- sample(seq(0.5, 1, by = 0.001), 1)
+    randsleep <- sample(seq(1, 3, by = 0.001), 1)
     Sys.sleep(randsleep)
   }
-
   webElem$sendKeysToElement(list(address, key = "enter"))
+
+  timeout <- 0
+
+  while ((driver$getCurrentUrl() %>% unlist()) == url) {
+    randsleep <- sample(seq(1, 3, by = 0.001), 1)
+    Sys.sleep(randsleep)
+    timeout <- timeout + 1
+    if(timeout > 4)
+      url <- driver$getCurrentUrl() %>% unlist()
+  }
+
   currentUrl <- driver$getCurrentUrl() %>% unlist()
   currentCoord <- findCoords(currentUrl)
-  while (coord == currentCoord) {
-    currentUrl <- driver$getCurrentUrl() %>% unlist()
-    currentCoord <- findCoords(currentUrl)
-    randsleep <- sample(seq(0.5, 1, by = 0.001), 1)
-    Sys.sleep(randsleep)
-  }
+
   return(currentCoord)
 }
-
 
 #remDr <- openDriverFirefox()
 
@@ -69,11 +95,15 @@ enderecos.clear <- function() {
 
   df.enderecos <- df.estabelacimento %>%
     transmute(
-      endereco = paste(endereco, municipio, uf),
+      num = 1:n(),
+      nome = nome,
+      endereco = paste0(endereco, ", ", municipio, ", ", ifelse(uf == "PI", "PIAUÍ", ifelse(.$uf == "MA", "MARANHÃO", "")), ", BRASIL"),
       coordenadas = ""
     )
 
-  df.enderecos %>% saveRDS("df.enderecos.rda")
+  con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
+  dbListTables(con)
+  dbWriteTable(con, "enderecos", df.enderecos, overwrite = TRUE)
 }
 
 ## enderecos.clear()
@@ -82,7 +112,11 @@ enderecos.clear <- function() {
 ## carrega os enderecos
 ######################################################################################################################
 
-df.enderecos <- readRDS("df.enderecos.rda")
+con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
+
+df.enderecos <- dbReadTable(con, "enderecos") %>% filter(coordenadas == "")
+
+dbDisconnect(con)
 
 df.enderecos %>%
   filter(coordenadas != "") %>%
@@ -90,30 +124,46 @@ df.enderecos %>%
 df.enderecos %>%
   count()
 
-driver_vector <- list(openDriverFirefox(10L), openDriverFirefox(20L),
-                      openDriverFirefox(30L), openDriverFirefox(40L))
+driver_vector <- list(
+  openDriverFirefox(10L),
+  openDriverFirefox(20L),
+  openDriverFirefox(30L),
+  openDriverFirefox(40L)
+)
+
 Sys.sleep(5)
 
 numCores <- driver_vector %>% length()
 
+print(numCores)
+
 registerDoParallel(numCores)
+#registerDoSEQ()
+
 foreach(row = seq_len(nrow(df.enderecos))) %dopar% {
-  if (df.enderecos[row, 2] == "") {
+  if (df.enderecos[row, 4] == "") {
+    print(row)
     numDv <- row %% numCores + 1
     driver <- driver_vector[[numDv]]
-    coords <- tryCatch({ addressToCoords(driver[[1]], df.enderecos[row, 1]) }, error = function(cond) {
-      print(cond)
-      return("")
-    })
-    df.enderecos[row, 2] <- coords
-    if ((row %% 200) == 0) {
-      print("Salva arquivo")
-      df.enderecos %>% saveRDS("df.enderecos.rda")
-    }
+    coords <- addressToCoords(driver[[1]], df.enderecos[row, 3])
+    df.enderecos[row, 4] <- coords
     print(c(row, numDv))
+
+    print("open")
+    con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
+    #dbBegin(con)
+    dbExecute(con, "UPDATE enderecos set coordenadas = ? where num = ?", params = list(df.enderecos[row, 4], df.enderecos[row, 1]))
+    #dbCommit(con)
+    dbDisconnect(con)
+    print("close")
   }
-  print(row)
 }
 
+stopImplicitCluster()
 
-df.enderecos %>% saveRDS("df.enderecos.rda")
+
+driver <- openDriverFirefox(10L)
+
+endereco <- "AVENIDA JOSE FRANCISCO DE ALMEIDA NETO, 4392, DIRCEU ARCOVERDE II, TERESINA, PIAUI"
+
+addressToCoords(driver[[1]], endereco)
