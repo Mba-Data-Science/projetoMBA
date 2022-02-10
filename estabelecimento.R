@@ -121,7 +121,7 @@ df.estabelacimento <- df.estabelacimento.bruto %>%
     dataAtividade = .$DATA_ATIVIDADE %>% as.Date(format = "%Y%m%d"),
     cnaePrincipal = .$CNAE_PRINCIPAL,
     cnaeSecundario = .$CNAE_SECUNDARIO %>% str_split(","),
-    endereco = paste0(.$TIPO_LOG, " ", .$LOGRADOURO, ", ", .$NUMERO, ", ",
+    endereco = paste0(.$TIPO_LOG, " ", .$LOGRADOURO, ", ", .$COMPLEMENTO, " ", .$NUMERO, " - ",
                       .$BAIRRO),
     bairro = .$BAIRRO,
     municipio = if_else(.$MUNICIPIO == 937, "TIMON",

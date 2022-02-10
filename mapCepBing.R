@@ -141,46 +141,28 @@ df.enderecos %>%
 df.enderecos %>%
   count()
 
-driver_vector <- list(
-  openDriverFirefox(10L),
-  openDriverFirefox(20L),
-  openDriverFirefox(30L),
-  openDriverFirefox(40L)
-)
+con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
 
-Sys.sleep(5)
-
-numCores <- driver_vector %>% length()
-
-print(numCores)
-
-registerDoParallel(numCores)
-#registerDoSEQ()
-
-foreach(row = seq_len(nrow(df.enderecos))) %dopar% {
+for (row in seq_len(nrow(df.enderecos))) {
   if (df.enderecos[row, 4] == "") {
     print(row)
-    numDv <- row %% numCores + 1
-    driver <- driver_vector[[numDv]]
-    coords <- addressToCoords(driver[[1]], df.enderecos[row, 3])
+    coords <- tryCatch({
+      addressToCoordsBing(df.enderecos[row, 3])
+    }, error = function(cond) {
+      print(cond)
+      ""
+    })
     df.enderecos[row, 4] <- coords
-    print(c(row, numDv))
+    print(coords)
 
-    print("open")
-    con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
-    #dbBegin(con)
     dbExecute(con, "UPDATE enderecos set coordenadas = ? where num = ?", params = list(df.enderecos[row, 4], df.enderecos[row, 1]))
-    #dbCommit(con)
-    dbDisconnect(con)
-    print("close")
+
+    if (row %% 100 == 0) {
+      dbDisconnect(con)
+      con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
+      print("close")
+    }
   }
 }
 
-stopImplicitCluster()
-
-
-driver <- openDriverFirefox(10L)
-
-endereco <- "AVENIDA JOSE FRANCISCO DE ALMEIDA NETO, 4392, DIRCEU ARCOVERDE II, TERESINA, PIAUI"
-
-addressToCoords(driver[[1]], endereco)
+dbDisconnect(con)
