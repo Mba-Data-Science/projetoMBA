@@ -6,7 +6,7 @@ pacotes <- c("readr", "readxl", "plotly", "tidyverse", "gridExtra", "forecast", 
              "smooth", "tsibble", "fable", "tsibbledata", "fpp3", "lubridate",
              "urca", "dygraphs", "quantmod", "BETS", "tseries", "FinTS",
              "gridExtra", "scales", "caret", "xtable", "tsutils", "GetBCBData",
-             "quantmod", "dgof", "seasonal", "R6", "coro")
+             "quantmod", "dgof", "seasonal", "DBI", "RSQLite", "foreach", "doParallel")
 
 if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
   instalador <- pacotes[!pacotes %in% installed.packages()]
@@ -87,7 +87,11 @@ saveJPEG <- function(plot, prefixo, grupo, width, height) {
 df.prd <- read.csv(file = "dados/pintos/bd_prd.csv", sep = ";",
                    colClasses = c("prdno" = "character",
                                   "sku" = "character")) %>%
+  mutate(grupo = ifelse(grupo == "ADULTO FEM", "CONFECCAO", grupo)) %>%
   mutate(grupo = as.factor(grupo))
+df.prd$grupo %>% unique()
+
+
 str(df.prd)
 
 ## vendas
@@ -310,63 +314,73 @@ v.end.isolamento <- df.meses(c("2020-07", "2020-12"))$data %>%
   sort()
 
 lista.treino <- data.frame(
+  id = integer(),
   grupo = character(),
   start.treino = character(),
   start.isolamento = character(),
   end.isolamento = character(),
-  acuracia = numeric(),
-  testeID = character()
+  acuracia = numeric()
 )
-lista.testeID = c("")
 
-lista.treino <- readRDS("lista.treino.RData")
-lista <- lista.treino
-
-lista$testeID <- paste(lista$grupo,
-                       "start.treino", lista$start.treino,
-                       "start.isolamento", lista$start.isolamento,
-                       "end.isolamento", lista$end.isolamento)
+id <- 0
 
 for (grupo in grupos) {
   for (start.treino in v.start.treino) {
+    print(c(grupo, start.treino))
     for (start.isolamento in v.start.isolamento) {
-    for (end.isolamento in v.end.isolamento) {
-      testeID <- paste(grupo,
-                       "start.treino", start.treino,
-                       "start.isolamento", start.isolamento,
-                       "end.isolamento", end.isolamento)
-      if ((testeID %in% lista.testeID) == FALSE) {
-        teste <- testaPrevisao(grupoPar = grupo,
-                               teste = testeID,
-                               plot = FALSE,
-                               periodoLockDown = c(start.isolamento, end.isolamento),
-                               periodoTreino = c(start.treino, "2020-12"))
-        cat(testeID)
-        if (length(teste) > 0) {
-          lista.treino <- lista.treino %>% add_row(
-            grupo = grupo,
-            start.treino = start.treino,
-            start.isolamento = start.isolamento,
-            end.isolamento = end.isolamento,
-            acuracia = teste$acurracia.teste
-          )
-          saveRDS(lista.treino, file = "lista.treino.RData")
-        }else {
-          lista.treino <- lista.treino %>% add_row(
-            grupo = grupo,
-            
-            start.treino = start.treino,
-            start.isolamento = start.isolamento,
-            end.isolamento = end.isolamento,
-            acuracia = NULL
-          )
-          saveRDS(lista.treino, file = "lista.treino.RData")
-        }
+      for (end.isolamento in v.end.isolamento) {
+        id <- id + 1
+        lista.treino <- lista.treino %>% add_row(
+          id = id,
+          grupo = grupo,
+          start.treino = start.treino,
+          start.isolamento = start.isolamento,
+          end.isolamento = end.isolamento,
+          acuracia = NULL
+        )
       }
     }
   }
-  }
 }
+
+con <- dbConnect(RSQLite::SQLite(), "dados.sqlite")
+dbWriteTable(con, "treinoArima", lista.treino, overwrite = TRUE)
+
+
+selectTreinos <- 'SELECT *
+FROM treinoArima
+WHERE acuracia IS NULL
+ORDER BY id'
+
+res <- dbSendQuery(con, selectTreinos)
+treinos <- dbFetch(res)
+dbClearResult(res)
+
+numCores <- 4
+
+registerDoParallel(numCores)
+
+foreach(row = seq_len(nrow(treinos))) %dopar% {
+  df.row <- treinos[row,]
+  teste <- testaPrevisao(grupoPar = df.row$grupo,
+                         teste = df.row$id,
+                         plot = FALSE,
+                         periodoLockDown = c(df.row$start.isolamento, df.row$end.isolamento),
+                         periodoTreino = c(df.row$start.treino, "2020-12"))
+  if(length(teste) > 0){
+  dbExecute(con, "UPDATE treinoArima set acuracia = ? where id = ?",
+            params = list(teste$acurracia.teste, df.row$id))
+  }else {
+      dbExecute(con, "UPDATE treinoArima set acuracia = ? where id = ?",
+            params = list(99999, df.row$id))
+  }
+  print(df.row$id)
+}
+
+stopImplicitCluster()
+
+
+
 
 
 
