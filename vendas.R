@@ -296,7 +296,8 @@ testaPrevisao <- function(grupoPar = "MOVEL",
   )
 }
 
-grupos <- df.prd$grupo %>% unique()
+grupos <- df.prd$grupo %>% unique() %>%
+  sort()
 
 v.start.treino <- df.meses(c("2008-03", "2018-01"))$data %>%
   format("%Y-%m") %>%
@@ -308,27 +309,34 @@ v.end.isolamento <- df.meses(c("2020-07", "2020-12"))$data %>%
   format("%Y-%m") %>%
   sort()
 
-#lista.treino <- data.frame(
-#  start.treino = character(),
-#  start.isolamento = character(),
-#  end.isolamento = character(),
-#  acuracia = numeric()
-#)
+lista.treino <- data.frame(
+  grupo = character(),
+  start.treino = character(),
+  start.isolamento = character(),
+  end.isolamento = character(),
+  acuracia = numeric(),
+  testeID = character()
+)
+lista.testeID = c("")
+
 lista.treino <- readRDS("lista.treino.RData")
 lista <- lista.treino
 
-lista$testeID <- paste("start.treino", lista$start.treino,
+lista$testeID <- paste(lista$grupo,
+                       "start.treino", lista$start.treino,
                        "start.isolamento", lista$start.isolamento,
                        "end.isolamento", lista$end.isolamento)
 
-for (start.treino in v.start.treino) {
-  for (start.isolamento in v.start.isolamento) {
+for (grupo in grupos) {
+  for (start.treino in v.start.treino) {
+    for (start.isolamento in v.start.isolamento) {
     for (end.isolamento in v.end.isolamento) {
-      testeID <- paste("start.treino", start.treino,
+      testeID <- paste(grupo,
+                       "start.treino", start.treino,
                        "start.isolamento", start.isolamento,
                        "end.isolamento", end.isolamento)
-      if ((testeID %in% lista$testeID) == FALSE) {
-        teste <- testaPrevisao(grupoPar = "BRINQ.",
+      if ((testeID %in% lista.testeID) == FALSE) {
+        teste <- testaPrevisao(grupoPar = grupo,
                                teste = testeID,
                                plot = FALSE,
                                periodoLockDown = c(start.isolamento, end.isolamento),
@@ -336,6 +344,7 @@ for (start.treino in v.start.treino) {
         cat(testeID)
         if (length(teste) > 0) {
           lista.treino <- lista.treino %>% add_row(
+            grupo = grupo,
             start.treino = start.treino,
             start.isolamento = start.isolamento,
             end.isolamento = end.isolamento,
@@ -344,6 +353,8 @@ for (start.treino in v.start.treino) {
           saveRDS(lista.treino, file = "lista.treino.RData")
         }else {
           lista.treino <- lista.treino %>% add_row(
+            grupo = grupo,
+            
             start.treino = start.treino,
             start.isolamento = start.isolamento,
             end.isolamento = end.isolamento,
@@ -354,7 +365,9 @@ for (start.treino in v.start.treino) {
       }
     }
   }
+  }
 }
+
 
 
 
