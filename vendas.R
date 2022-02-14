@@ -6,7 +6,7 @@ pacotes <- c("readr", "readxl", "plotly", "tidyverse", "gridExtra", "forecast", 
              "smooth", "tsibble", "fable", "tsibbledata", "fpp3", "lubridate",
              "urca", "dygraphs", "quantmod", "BETS", "tseries", "FinTS",
              "gridExtra", "scales", "caret", "xtable", "tsutils", "GetBCBData",
-             "quantmod", "dgof", "seasonal", "DBI", "RSQLite", "foreach", "doParallel")
+             "quantmod", "dgof", "seasonal", "DBI", "RSQLite", "foreach", "doParallel", "Metrics")
 
 if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
   instalador <- pacotes[!pacotes %in% installed.packages()]
@@ -248,9 +248,12 @@ testaPrevisao <- function(grupoPar = "MOVEL",
 
   arima.previsao <- forecast(arima.vendas, 12)
 
-  acurracia <- accuracy(arima.previsao$mean, vendas.teste)
+ # acurracia <- accuracy(arima.previsao$mean, vendas.teste)
 
-  acurracia.teste <- acurracia["Test set", "MAPE"]
+#  acurracia.teste <- acurracia["Test set", "MAPE"]
+  acurracia.teste <- smape(arima.previsao$mean, vendas.teste)*100
+  print(arima.previsao$mean)
+  print(vendas.teste)
 
   resultado.acuracia <- paste0("Acurácia do modelo é de ", acurracia.teste %>% formatNumero(), " %")
 
@@ -258,7 +261,7 @@ testaPrevisao <- function(grupoPar = "MOVEL",
   cat(resultado)
 
   plotForecast <- if (plot) {
-    autoplot(
+    plot <- autoplot(
       vendas.treino,
       main = paste0("Grupo: ", grupoPar),
       ylab = "Vendas R$ milhões",
@@ -273,7 +276,8 @@ testaPrevisao <- function(grupoPar = "MOVEL",
       labs(subtitle = resultado) +
       theme_bw()
 
-    saveJPEG(plotForecast, prefixo = paste0("forecast", teste), grupo = grupoPar, width = 1200, height = 400)
+    saveJPEG(plot, prefixo = paste0("forecast", teste), grupo = grupoPar, width = 1200, height = 400)
+    plot
   }
 
   return(
@@ -381,7 +385,20 @@ stopImplicitCluster()
 
 
 
+teste <- testaPrevisao(grupoPar = "ART BEBE",
+              teste = "00",
+              plot = TRUE,
+              periodoLockDown = c("2020-01", "2020-10"),
+              periodoTreino = c("2009-01", "2020-12"))
 
+
+
+
+teste <- testaPrevisao(grupoPar = "BIKE FITNESS",
+              teste = "00",
+              plot = TRUE,
+              periodoLockDown = c("2020-01", "2020-07"),
+              periodoTreino = c("2011-01", "2020-12"))
 
 
 

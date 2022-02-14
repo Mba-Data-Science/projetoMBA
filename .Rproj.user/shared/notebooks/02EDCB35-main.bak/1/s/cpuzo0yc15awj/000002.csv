@@ -1,8 +1,0 @@
-"0","# Carrega o arquivo de cnaes"
-"0","df.cnaes <- read.csv(""cnae.txt"", sep = "";"")"
-"0",""
-"0","cnaes.Pintos <- c(4751201, 4752100, 4753900, 4754701, 4755503, 4759899, 4763601, 4772500, 4781400, 4782201)"
-"0",""
-"0","df.cnaes[order(df.cnaes$CODIGO),] %>%"
-"0","  filter(CODIGO %in% cnaes.Pintos) %>%"
-"0","  tabela()"
