@@ -1,4 +1,7 @@
+.directory
 dados
 .Rproj.user
+.RData
+.Rhistory
 .idea
 .Rhistory

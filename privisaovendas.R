@@ -340,18 +340,6 @@ for (grupo in grupos) {
   }
 }
 
-con <- dbConnect(RSQLite::SQLite(), "db.sqlite")
-dbWriteTable(con, "treinoArima", lista.treino, overwrite = TRUE)
-
-
-selectTreinos <- 'SELECT *
-FROM treinoArima
-WHERE acuracia IS NULL
-ORDER BY id'
-
-res <- dbSendQuery(con, selectTreinos)
-treinos <- dbFetch(res)
-dbClearResult(res)
 
 numCores <- 4
 
