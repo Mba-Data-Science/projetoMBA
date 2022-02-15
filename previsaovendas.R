@@ -250,9 +250,9 @@ testaPrevisao <- function(grupoPar = "MOVEL",
 
   acurracia <- accuracy(arima.previsao$mean, vendas.teste)
 
-  acurracia.teste <- acurracia["Test set", "MAPE"]
+  mape <- acurracia["Test set", "MAPE"] %>% round(3)
 
-  resultado.acuracia <- paste0("Acurácia do modelo é de ", acurracia.teste %>% formatNumero(), " %")
+  resultado.acuracia <- paste0("O percentual de erro MAPE do modelo é ", mape %>% formatNumero(), " %")
 
   resultado <- paste(paste0("Teste: ", teste), resultado.lb, resultado.ks, resultado.ac, resultado.acuracia, "\n", sep = "\n")
   cat(resultado)
@@ -291,7 +291,7 @@ testaPrevisao <- function(grupoPar = "MOVEL",
         p.value = teste.ks$p.value,
         resultado = resultado.ks
       ),
-      acurracia.teste = acurracia.teste,
+      mape = mape,
       plots = list(
         plot.forecast = plotForecast,
         plot.ts = plot.ts
@@ -300,12 +300,13 @@ testaPrevisao <- function(grupoPar = "MOVEL",
   )
 }
 
-grupos <- df.prd$grupo %>% unique() %>%
+grupos <- df.prd$grupo %>%
+  unique() %>%
   sort()
 
-v.start.treino <- c("2008-06", "2009-01", "2009-06", "2010-01", "2010-06", 
-                    "2011-01", "2011-06", "2012-01", "2012-06", "2013-01", 
-                    "2013-06", "2014-01", "2014-06", "2015-01", "2015-06", 
+v.start.treino <- c("2008-06", "2009-01", "2009-06", "2010-01", "2010-06",
+                    "2011-01", "2011-06", "2012-01", "2012-06", "2013-01",
+                    "2013-06", "2014-01", "2014-06", "2015-01", "2015-06",
                     "2016-01", "2016-06", "2017-01", "2017-06", "2018-01")
 v.start.isolamento <- c("2020-01")
 v.end.isolamento <- c("2020-12")
@@ -316,7 +317,7 @@ lista.treino <- data.frame(
   start.treino = character(),
   start.isolamento = character(),
   end.isolamento = character(),
-  acuracia = numeric()
+  mape = numeric()
 )
 
 id <- 0
@@ -333,7 +334,7 @@ for (grupo in grupos) {
           start.treino = start.treino,
           start.isolamento = start.isolamento,
           end.isolamento = end.isolamento,
-          acuracia = NULL
+          mape = NULL
         )
       }
     }
@@ -345,19 +346,17 @@ numCores <- 4
 
 registerDoParallel(numCores)
 
-foreach(row = seq_len(nrow(treinos))) %dopar% {
-  df.row <- treinos[row,]
+foreach(row = seq_len(nrow(lista.treino))) %dopar% {
+  df.row <- lista.treino[row,]
   teste <- testaPrevisao(grupoPar = df.row$grupo,
                          teste = df.row$id,
                          plot = FALSE,
                          periodoLockDown = c(df.row$start.isolamento, df.row$end.isolamento),
                          periodoTreino = c(df.row$start.treino, "2020-12"))
-  if(length(teste) > 0){
-  dbExecute(con, "UPDATE treinoArima set acuracia = ? where id = ?",
-            params = list(teste$acurracia.teste, df.row$id))
+  if (length(teste) > 0) {
+    lista.treino[row, "mape"] <- teste$mape
   }else {
-      dbExecute(con, "UPDATE treinoArima set acuracia = ? where id = ?",
-            params = list(99999, df.row$id))
+    lista.treino[row, "mape"] <- NA
   }
   print(df.row$id)
 }
