@@ -1,3 +1,4 @@
+
 ######################################################################################################################
 # Carrega pacotes
 ######################################################################################################################
@@ -346,7 +347,7 @@ numCores <- 4
 
 registerDoParallel(numCores)
 
-foreach(row = seq_len(nrow(lista.treino))) %dopar% {
+listaMape <- foreach(row = seq_len(nrow(lista.treino)), .combine = 'c') %dopar% {
   df.row <- lista.treino[row,]
   teste <- testaPrevisao(grupoPar = df.row$grupo,
                          teste = df.row$id,
@@ -354,17 +355,29 @@ foreach(row = seq_len(nrow(lista.treino))) %dopar% {
                          periodoLockDown = c(df.row$start.isolamento, df.row$end.isolamento),
                          periodoTreino = c(df.row$start.treino, "2020-12"))
   if (length(teste) > 0) {
-    lista.treino[row, "mape"] <- teste$mape
+    teste$mape
   }else {
-    lista.treino[row, "mape"] <- NA
+    NA
   }
-  print(df.row$id)
 }
 
 stopImplicitCluster()
 
+lista.treino$mape <- listaMape
 
+lista.treino.min <-lista.treino %>% 
+  group_by(grupo) %>% 
+  summarise(mape = min(mape, na.rm = TRUE))
 
+lista.treino.min <- merge(lista.treino, lista.treino.min, by=c("grupo", "mape")) 
 
+for(row in seq_len(nrow(lista.treino.min))){
+  df.row <- lista.treino.min[row, ]
+  testaPrevisao(grupoPar = df.row$grupo,
+                teste = df.row$id,
+                plot = TRUE,
+                periodoLockDown = c(df.row$start.isolamento, df.row$end.isolamento),
+                periodoTreino = c(df.row$start.treino, "2020-12"))
+}
 
 
