@@ -127,3 +127,4 @@ vendas.grupo.todasloja <- vendas.grupo.loja.ativo %>%
 vendas.grupo <- rbind(vendas.grupo.loja.ativo, vendas.grupo.todasloja) %>%
   mutate(loja = as.factor(loja))
 
+saveRDS(vendas.grupo, "vendas.grupo.rds")

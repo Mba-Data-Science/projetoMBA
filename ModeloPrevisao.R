@@ -3,7 +3,7 @@
 ######################################################################################################################
 options(digits = 4, scipen = 30)
 
-pacotes <- c("tidyverse", "forecast", "urca", "zoo", "FinTS", "foreach")
+pacotes <- c("tidyverse", "forecast", "urca", "zoo", "FinTS", "foreach", "future")
 
 if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
   instalador <- pacotes[!pacotes %in% installed.packages()]
@@ -35,13 +35,17 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                 teste.ts = "ts",
                                 isolamento.ts = "ts",
                                 treino.ts = "ts",
-                                arima = "ANY"
+                                arima = "ANY",
+                                approximation = "logical",
+                                stepwise = "logical"
                               ),
                               methods = list(
                                 init = function(id,
                                                 nome.grupo,
                                                 loja,
                                                 venda.ts,
+                                                approximation = TRUE,
+                                                stepwise = TRUE,
                                                 treino.start = c(2009, 1),
                                                 treino.end = c(2020, 2),
                                                 isolamento.start = c(2020, 2),
@@ -51,6 +55,8 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                   id <<- id
                                   nome.grupo <<- nome.grupo
                                   loja <<- loja
+                                  approximation <<- approximation
+                                  stepwise <<- stepwise
                                   venda.ts <<- venda.ts
                                   treino.start <<- treino.start
                                   treino.end <<- treino.end
@@ -115,7 +121,12 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                   return(result)
                                 },
                                 executaModelo = function() {
-                                  arima <<- auto.arima(treino.ts)
+                                  arima <<- auto.arima(treino.ts,
+                                                       max.order = 5,
+                                                       D = 1,
+                                                       d = 1,
+                                                       approximation = approximation,
+                                                       stepwise = stepwise)
                                 },
                                 descicaoModelo = function() {
                                   a <- arima$arma
@@ -134,9 +145,10 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                 },
                                 testeKolmogorovSmirnov = function() tryCatch(
                                   expr = {
-                                    ks.test(arima$residuals, "pnorm",
-                                            mean(arima$residuals),
-                                            sd(arima$residuals))
+                                    residuals <- arima$residuals
+                                    ks.test(residuals, "pnorm",
+                                            mean(residuals),
+                                            sd(residuals))
                                   },
                                   error = function(e){ 
                                     NULL
@@ -233,9 +245,10 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
 
 loja.grupos <- tibble(loja = vendas.grupo$loja, grupo = vendas.grupo$grupo) %>%
   unique() %>%
+#  filter(loja == "Loja 03" & grupo == "Calçados") %>%
   arrange(loja, grupo)
 treino.start.list <- c("2009-1", "2010-1", "2011-1", "2012-1", "2013-1",
-                       "2014-1", "2015-1", "2016-1", "2017-1")
+                       "2014-1", "2015-1")
 teste.start.list <- c("2020-6", "2020-7", "2020-8", "2020-9", "2020-10",
                       "2020-11", "2020-12", "2021-1")
 
@@ -296,7 +309,9 @@ lista.modelo <- foreach(row = 1:nrow(lista.parametros), .combine = 'c') %do% {
               isolamento.start = c(2020, 2),
               isolamento.end = teste.start,
               teste.start = teste.start,
-              teste.end = c(2021, 12)
+              teste.end = c(2021, 12),
+              stepwise = FALSE,
+              approximation = FALSE
   )
   modelo$executaModelo()
   print(paramentro)
@@ -346,35 +361,40 @@ modelos <- foreach(modelo = lista.modelo, .combine = 'rbind') %do% {
   )
 }
 
+paramentro.meses <- modelos %>%
+  select(treino.start, treino.end, isolamento.start, isolamento.end, teste.start, teste.end) %>%
+  unique()
+
+paramentro.meses <- paramentro.meses %>%
+  mutate(id=seq.int(nrow(paramentro.meses))) %>%
+  select(id, treino.start, treino.end, isolamento.start, isolamento.end, teste.start, teste.end)
+
+paramentro.loja.grupo <- modelos %>%
+  select(loja, grupo) %>%
+  arrange(loja, grupo) %>%
+  unique()
+
+acuracia.treino <- modelos %>%
+  filter(modeloAceito == "SIM") %>%
+  group_by(loja, grupo) %>%
+  summarise(MAPE.Treino = min(MAPE.Treino))
+
+acuracia.treino.teste <- modelos %>%
+  filter(modeloAceito == "SIM") %>%
+  inner_join(acuracia.treino, by = c("loja", "grupo", "MAPE.Treino")) %>%
+  group_by(loja, grupo, MAPE.Treino) %>%
+  summarise(MAPE.Teste = min(MAPE.Teste))
+
 modelos %>%
+  filter(modeloAceito == "SIM") %>%
+  inner_join(acuracia.treino.teste, by = c("loja", "grupo", "MAPE.Treino", "MAPE.Teste")) %>%
   View()
 
-modelo <- lista.modelo[[3311]]
-modelo$plot()
+lista.modelo[[264]]$plot() %>% ggplotly()
+lista.modelo[[1842]]$plot() %>% ggplotly()
+lista.modelo[[37]]$plot() %>% ggplotly()
 
 
-modelos %>%
-  filter(grupo == "Móveis" & modeloAceito == "SIM") %>%
-  View()
 
-lista.modelo[[80]]$plot()
-lista.modelo[[307]]$plot()
-lista.modelo[[313]]$plot()
-
-sum <- lista.modelo[[141]]$testeDickeyFuller() %>% summary()
-
-
-arima$arma
-class(arima)
-lista.modelo[[755]]$plot() %>% ggplotly()
-lista.modelo[[707]]$plot() %>% ggplotly()
-lista.modelo[[828]]$plot() %>% ggplotly()
-
-l <- foreach(modelo = lista.modelo, .combine = 'rbind') %do% {
-  modelo$arima$arma
-}
-
-lista.modelo[[785]]$arima
-lista.modelo[[785]]$arima$arma
 
 
