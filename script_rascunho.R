@@ -83,7 +83,6 @@ arima <- auto.arima(treino.ts,
 
 arima
 
-otype(arima)
 
 residuas <- checkresiduals(arima, plot = FALSE)
 

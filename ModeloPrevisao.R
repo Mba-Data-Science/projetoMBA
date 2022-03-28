@@ -3,17 +3,13 @@
 ######################################################################################################################
 options(digits = 4, scipen = 30)
 
-pacotes <- c("tidyverse", "forecast", "urca", "zoo", "FinTS", "foreach", "future")
-
-if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
-  instalador <- pacotes[!pacotes %in% installed.packages()]
-  for (i in seq_along(instalador)) {
-    install.packages(instalador, dependencies = T)
-    break() }
-  sapply(pacotes, require, character = T)
-} else {
-  sapply(pacotes, require, character = T)
-}
+library(tidyverse)
+library(forecast)
+library(urca)
+library(zoo)
+library(FinTS)
+library(foreach)
+library(future)
 
 formatYM <- function(cym) {
   return(paste0(cym[2], '/', cym[1]))
@@ -65,7 +61,7 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                   teste.start <<- teste.start
                                   teste.end <<- teste.end
                                   ## divisão de janelas
-
+                                  
                                   ## definindo a serie
                                   teste.ts <<- window(venda.ts, start = teste.start, end = teste.end)
                                   isolamento.ts <<- window(venda.ts, start = isolamento.start, end = isolamento.end)
@@ -104,11 +100,11 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                           ""
                                         }
                                         else
-                                        if (abs(tau) < abs(cval)) {
-                                          "H0: A série não é Estacionária (95% de confiaça)"
-                                        } else {
-                                          "H1: A série é Estacionária (95% de confiaça)"
-                                        }
+                                          if (abs(tau) < abs(cval)) {
+                                            "H0: A série não é Estacionária (95% de confiaça)"
+                                          } else {
+                                            "H1: A série é Estacionária (95% de confiaça)"
+                                          }
                                       }
                                     },
                                     error = function(e) {
@@ -130,7 +126,8 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                 },
                                 descicaoModelo = function() {
                                   a <- arima$arma
-                                  return(paste0("ARIMA(", a[1], ",", a[6], ",", a[2], ")(", a[3], ",", a[7], ",", a[4], ")[", a[5], "]"))
+                                  return(paste0("ARIMA(", a[1], ",", a[6], ",", a[2], ")(", 
+                                                a[3], ",", a[7], ",", a[4], ")[", a[5], "]"))
                                 },
                                 testeLjungBox = function(plot = FALSE) checkresiduals(arima, plot = plot),
                                 interpletacaoLjungBox = function() {
@@ -169,11 +166,11 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                       ""
                                     }
                                     else
-                                    if (p.value > 0.05) {
-                                      paste0("H0: Residuos são normais (", p.value, " > 0.05)")
-                                    }else {
-                                      paste0("H1: Residuos não são normais (", p.value, " < 0.05)")
-                                    }
+                                      if (p.value > 0.05) {
+                                        paste0("H0: Residuos são normais (", p.value, " > 0.05)")
+                                      }else {
+                                        paste0("H1: Residuos não são normais (", p.value, " < 0.05)")
+                                      }
                                   )
                                 },
                                 testeArch = function() ArchTest(arima$residuals),
@@ -195,16 +192,16 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                     if(is.null(p.value.Arch) | is.null(p.value.KS) | is.null(p.value.LB))
                                       "NÃO"
                                     else
-                                    if (p.value.Arch > 0.05 &
-                                      p.value.KS > 0.05 &
-                                      p.value.LB > 0.05)
-                                      "SIM"
+                                      if (p.value.Arch > 0.05 &
+                                          p.value.KS > 0.05 &
+                                          p.value.LB > 0.05)
+                                        "SIM"
                                     else
                                       "NÃO"
                                   )
                                 },
                                 executaPrevisao = function() forecast::forecast(arima, h = length(teste.ts) +
-                                  length(isolamento.ts) - 2),
+                                                                                  length(isolamento.ts) - 2),
                                 plot = function() {
                                   countYear <- venda.ts %>%
                                     time() %>%
@@ -213,7 +210,7 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                     unique() %>%
                                     length()
                                   previsao <- executaPrevisao()
-
+                                  
                                   ts <- window(venda.ts, start = c(2009, 1), end = treino.start)
                                   return(autoplot(ts) +
                                            labs(x = "Tempo", y = "Quantidade de itens vendidos",
@@ -243,9 +240,11 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
 
 ###########################################################
 
+vendas.grupo <- readRDS("vendas.grupo.rds")
+
 loja.grupos <- tibble(loja = vendas.grupo$loja, grupo = vendas.grupo$grupo) %>%
   unique() %>%
-#  filter(loja == "Loja 03" & grupo == "Calçados") %>%
+  filter(loja == "Loja 03" & grupo == "Calçados") %>%
   arrange(loja, grupo)
 treino.start.list <- c("2009-1", "2010-1", "2011-1", "2012-1", "2013-1",
                        "2014-1", "2015-1")
@@ -257,24 +256,24 @@ id <- 0
 lista.parametros <- foreach(row = 1:nrow(loja.grupos), .combine = 'rbind') %:%
   foreach(treino.start = treino.start.list, .combine = 'rbind') %:%
   foreach(teste.start = teste.start.list, .combine = 'rbind') %do% {
-  df.row <- loja.grupos[row,]
-  print(row)
-  print(df.row)
-
-  grupoPar <- df.row$grupo
-  lojaPar <- df.row$loja
-
-  id <- id + 1
-  tibble(id = id,
-         grupo = grupoPar,
-         loja = lojaPar,
-         treino.start = treino.start,
-         teste.start = teste.start)
-}
+    df.row <- loja.grupos[row,]
+    print(row)
+    print(df.row)
+    
+    grupoPar <- df.row$grupo
+    lojaPar <- df.row$loja
+    
+    id <- id + 1
+    tibble(id = id,
+           grupo = grupoPar,
+           loja = lojaPar,
+           treino.start = treino.start,
+           teste.start = teste.start)
+  }
 
 chave <- ""
 
-lista.modelo <- foreach(row = 1:nrow(lista.parametros), .combine = 'c') %do% {
+lista.modelo <- foreach(row = 1:2, .combine = 'c') %do% {
   paramentro <- lista.parametros[row,]
   id <- paramentro$id
   grupoPar <- paramentro$grupo
@@ -287,7 +286,7 @@ lista.modelo <- foreach(row = 1:nrow(lista.parametros), .combine = 'c') %do% {
     str_split("-") %>%
     unlist() %>%
     as.numeric()
-
+  
   if (chave != paste(grupoPar, lojaPar)) {
     print(c("chave", chave))
     serie.venda <- vendas.grupo %>%
@@ -298,7 +297,7 @@ lista.modelo <- foreach(row = 1:nrow(lista.parametros), .combine = 'c') %do% {
     venda.ts <- ts(serie.venda$vendas, start = c(2009, 1), end = c(2021, 12), frequency = 12)
     chave <- paste(grupoPar, lojaPar)
   }
-
+  
   modelo <- ModeloPrevisao$new()
   modelo$init(id = id,
               nome.grupo = grupoPar %>% as.character(),
@@ -315,14 +314,12 @@ lista.modelo <- foreach(row = 1:nrow(lista.parametros), .combine = 'c') %do% {
   )
   modelo$executaModelo()
   print(paramentro)
-  #print(modelo$acuracia())
-  #print(modelo$plot())
   modelo
 }
 
 saveRDS(lista.modelo, "lista.modelo.rds")
 
-lista.modelo <- readRDS("lista.modelo.rds")
+lista.modelo <- readRDS("lista.modelos.detalhado.rds")
 
 lista.modelo <- foreach(modelo = lista.modelo, .combine = 'c') %do% {
   modelo$copy()
@@ -335,9 +332,9 @@ modelos <- foreach(modelo = lista.modelo, .combine = 'rbind') %do% {
   testeKolmogorovSmirnov <- modelo$interpletacaoKolmogorovSmirnov()
   testeArch <- modelo$interpletacaoArch()
   modeloAceito <- modelo$modeloAceito()
-
+  
   print(modelo$id)
-
+  
   tibble(
     id = modelo$id,
     grupo = modelo$nome.grupo,
@@ -393,8 +390,5 @@ modelos %>%
 lista.modelo[[264]]$plot() %>% ggplotly()
 lista.modelo[[1842]]$plot() %>% ggplotly()
 lista.modelo[[37]]$plot() %>% ggplotly()
-
-
-
 
 

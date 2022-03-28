@@ -2,24 +2,13 @@
 # Carrega pacotes
 ################################################################################
 options(digits=4, scipen = 30)
+options(dplyr.summarise.inform = FALSE)
+
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+library(numform)
         
-pacotes <- c("readr", "readxl", "plotly", "tidyverse", "gridExtra", "forecast", "TTR", "numform", "data.table",
-             "smooth", "tsibble", "fable", "tsibbledata", "fpp3", "lubridate", "openxlsx",
-             "urca", "dygraphs", "quantmod", "BETS", "tseries", "FinTS", "moments", "factoextra",
-             "gridExtra", "scales", "caret", "xtable", "tsutils", "GetBCBData", "TSstudio",
-             "quantmod", "dgof", "seasonal", "DBI", "RSQLite", "foreach", "doParallel", "pastecs", "pryr")
-
-if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
-  instalador <- pacotes[!pacotes %in% installed.packages()]
-  for (i in seq_along(instalador)) {
-    install.packages(instalador, dependencies = T)
-    break() }
-  sapply(pacotes, require, character = T)
-} else {
-  sapply(pacotes, require, character = T)
-}
-
-
 # Funções
 ################################################################################
 
@@ -29,7 +18,7 @@ if (sum(as.numeric(!pacotes %in% installed.packages())) != 0) {
 ################################################################################
 ## produtos
 descricao_grupos <- read.csv("database/descricao_grupos.csv",
-                             colClasses = c("codigo" = "integer"))
+                             colClasses = c("codigo.grupo" = "integer"))
 
 produtos <- read.csv(file = "database/bd_prd.csv.gz", sep = ";",
                      colClasses = c("prdno" = "character",
@@ -115,7 +104,6 @@ vendas.grupo.loja.ativo <- vendas.grupo.loja %>%
     valor.venda = sum(valor.venda)
   )
 
-
 vendas.grupo.todasloja <- vendas.grupo.loja.ativo %>%
   select(data, loja, grupo, quant.venda, valor.venda) %>%
   group_by(data, grupo, loja = "TODAS") %>%
@@ -128,3 +116,5 @@ vendas.grupo <- rbind(vendas.grupo.loja.ativo, vendas.grupo.todasloja) %>%
   mutate(loja = as.factor(loja))
 
 saveRDS(vendas.grupo, "vendas.grupo.rds")
+
+
