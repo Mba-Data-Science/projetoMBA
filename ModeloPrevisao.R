@@ -116,14 +116,6 @@ ModeloPrevisao <- setRefClass("ModeloPrevisao",
                                   )
                                   return(result)
                                 },
-                                executaModelo = function() {
-                                  arima <<- auto.arima(treino.ts,
-                                                       max.order = 5,
-                                                       D = 1,
-                                                       d = 1,
-                                                       approximation = approximation,
-                                                       stepwise = stepwise)
-                                },
                                 descicaoModelo = function() {
                                   a <- arima$arma
                                   return(paste0("ARIMA(", a[1], ",", a[6], ",", a[2], ")(", 
@@ -244,10 +236,8 @@ vendas.grupo <- readRDS("vendas.grupo.rds")
 
 loja.grupos <- tibble(loja = vendas.grupo$loja, grupo = vendas.grupo$grupo) %>%
   unique() %>%
-  filter(loja == "Loja 03" & grupo == "Calçados") %>%
   arrange(loja, grupo)
-treino.start.list <- c("2009-1", "2010-1", "2011-1", "2012-1", "2013-1",
-                       "2014-1", "2015-1")
+treino.start.list <- c("2009-1")
 teste.start.list <- c("2020-6", "2020-7", "2020-8", "2020-9", "2020-10",
                       "2020-11", "2020-12", "2021-1")
 
@@ -273,16 +263,16 @@ lista.parametros <- foreach(row = 1:nrow(loja.grupos), .combine = 'rbind') %:%
 
 chave <- ""
 
-lista.modelo <- foreach(row = 1:2, .combine = 'c') %do% {
-  paramentro <- lista.parametros[row,]
-  id <- paramentro$id
-  grupoPar <- paramentro$grupo
-  lojaPar <- paramentro$loja
+lista.modelo <- foreach(row = 1:nrow(lista.parametros), .combine = 'c') %do% {
+  paramentro   <- lista.parametros[row,]
+  id           <- paramentro$id
+  grupoPar     <- paramentro$grupo
+  lojaPar      <- paramentro$loja
   treino.start <- paramentro$treino.start %>%
     str_split("-") %>%
     unlist() %>%
     as.numeric()
-  teste.start <- paramentro$teste.start %>%
+  teste.start  <- paramentro$teste.start %>%
     str_split("-") %>%
     unlist() %>%
     as.numeric()
@@ -296,6 +286,12 @@ lista.modelo <- foreach(row = 1:2, .combine = 'c') %do% {
       arrange(data)
     venda.ts <- ts(serie.venda$vendas, start = c(2009, 1), end = c(2021, 12), frequency = 12)
     chave <- paste(grupoPar, lojaPar)
+    arima <- auto.arima(treino.ts,
+                        max.order = 5,
+                        D = 1,
+                        d = 1,
+                        approximation = approximation,
+                        stepwise = stepwise)
   }
   
   modelo <- ModeloPrevisao$new()
@@ -312,83 +308,10 @@ lista.modelo <- foreach(row = 1:2, .combine = 'c') %do% {
               stepwise = FALSE,
               approximation = FALSE
   )
-  modelo$executaModelo()
+  modelo$arima = arima
   print(paramentro)
   modelo
 }
 
 saveRDS(lista.modelo, "lista.modelo.rds")
-
-lista.modelo <- readRDS("lista.modelos.detalhado.rds")
-
-lista.modelo <- foreach(modelo = lista.modelo, .combine = 'c') %do% {
-  modelo$copy()
-}
-
-modelos <- foreach(modelo = lista.modelo, .combine = 'rbind') %do% {
-  acuracia <- modelo$acuracia()
-  testeDickeyFuller <- modelo$interpleracaoDickeyFuller()
-  testeLjungBox <- modelo$interpletacaoLjungBox()
-  testeKolmogorovSmirnov <- modelo$interpletacaoKolmogorovSmirnov()
-  testeArch <- modelo$interpletacaoArch()
-  modeloAceito <- modelo$modeloAceito()
-  
-  print(modelo$id)
-  
-  tibble(
-    id = modelo$id,
-    grupo = modelo$nome.grupo,
-    loja  = modelo$loja,
-    treino.start = modelo$treino.start %>% paste(collapse = "-"),
-    treino.end = modelo$treino.end %>% paste(collapse = "-"),
-    isolamento.start = modelo$isolamento.start %>% paste(collapse = "-"),
-    isolamento.end = modelo$isolamento.end %>% paste(collapse = "-"),
-    teste.start = modelo$teste.start %>% paste(collapse = "-"),
-    teste.end = modelo$teste.end %>% paste(collapse = "-"),
-    MAPE.Treino = acuracia["Treino", "MAPE"],
-    MAPE.Teste = acuracia["Teste", "MAPE"],
-    RMSE.Treino = acuracia["Treino", "RMSE"],
-    RMSE.Teste = acuracia["Teste", "RMSE"],
-    modelo = modelo$descicaoModelo(),
-    testeDickeyFuller = testeDickeyFuller,
-    testeLjungBox = testeLjungBox,
-    testeKolmogorovSmirnov = testeKolmogorovSmirnov,
-    testeArch = testeArch,
-    modeloAceito = modeloAceito
-  )
-}
-
-paramentro.meses <- modelos %>%
-  select(treino.start, treino.end, isolamento.start, isolamento.end, teste.start, teste.end) %>%
-  unique()
-
-paramentro.meses <- paramentro.meses %>%
-  mutate(id=seq.int(nrow(paramentro.meses))) %>%
-  select(id, treino.start, treino.end, isolamento.start, isolamento.end, teste.start, teste.end)
-
-paramentro.loja.grupo <- modelos %>%
-  select(loja, grupo) %>%
-  arrange(loja, grupo) %>%
-  unique()
-
-acuracia.treino <- modelos %>%
-  filter(modeloAceito == "SIM") %>%
-  group_by(loja, grupo) %>%
-  summarise(MAPE.Treino = min(MAPE.Treino))
-
-acuracia.treino.teste <- modelos %>%
-  filter(modeloAceito == "SIM") %>%
-  inner_join(acuracia.treino, by = c("loja", "grupo", "MAPE.Treino")) %>%
-  group_by(loja, grupo, MAPE.Treino) %>%
-  summarise(MAPE.Teste = min(MAPE.Teste))
-
-modelos %>%
-  filter(modeloAceito == "SIM") %>%
-  inner_join(acuracia.treino.teste, by = c("loja", "grupo", "MAPE.Treino", "MAPE.Teste")) %>%
-  View()
-
-lista.modelo[[264]]$plot() %>% ggplotly()
-lista.modelo[[1842]]$plot() %>% ggplotly()
-lista.modelo[[37]]$plot() %>% ggplotly()
-
 
