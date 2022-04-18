@@ -9,9 +9,6 @@ library(tsibble)
 library(lubridate)
 library(numform)
 
-#‘broom’, ‘modelr’, ‘reprex’, ‘rvest’, ‘stringr’
-
-install.packages("broom",dependencies = TRUE,  repos = c("https://cloud.r-project.org/"))
 # Funções
 ################################################################################
 
@@ -20,14 +17,14 @@ install.packages("broom",dependencies = TRUE,  repos = c("https://cloud.r-projec
 # Carrega dados
 ################################################################################
 ## produtos
-descricao_grupos <- read.csv("database/descricao_grupos.csv",
-                             colClasses = c("codigo.grupo" = "integer"))
+descricaoGrupos <- read.csv("database/descricao_grupos.csv",
+                            colClasses = c("codigo.grupo" = "integer"))
 
 produtos <- read.csv(file = "database/bd_prd.csv.gz", sep = ";",
                      colClasses = c("prdno" = "character",
                                     "sku" = "character")) %>%
   mutate(grupo = as.factor(grupo)) %>%
-  merge(descricao_grupos, by = "grupo") %>%
+  merge(descricaoGrupos, by = "grupo") %>%
   mutate(grupo = as.factor(descricao.grupo))
 
 ## vendas
@@ -59,9 +56,9 @@ grupos <- produtos %>%
   select(grupo) %>%
   unique()
 
-datas.grupos.loja <- merge(datas, lojas) %>% merge(grupos)
+datasGruposLoja <- merge(datas, lojas) %>% merge(grupos)
 
-vendas.agrupadas <- vendas %>%
+vendasAgrupadas <- vendas %>%
   merge(produtos, by = "prdno") %>%
   group_by(data, grupo, loja) %>%
   summarise(
@@ -69,8 +66,8 @@ vendas.agrupadas <- vendas %>%
     valor.venda = sum(valor)
   )
 
-vendas.grupo.loja <- datas.grupos.loja %>%
-  left_join(vendas.agrupadas, by = c("data", "grupo", "loja")) %>%
+vendasGrupoLoja <- datasGruposLoja %>%
+  left_join(vendasAgrupadas, by = c("data", "grupo", "loja")) %>%
   mutate(
     quant.venda = replace_na(quant.venda, 0), 
     valor.venda = replace_na(valor.venda, 0.00)
@@ -80,25 +77,25 @@ vendas.grupo.loja <- datas.grupos.loja %>%
 
 ## totalização de grupos
 
-total.loja.grupo <- vendas.grupo.loja %>%
+totalLojaGrupo <- vendasGrupoLoja %>%
   group_by(loja, grupo) %>%
   summarise(
     valor.venda = sum(valor.venda),
   )
 
-total.grupo <- total.loja.grupo %>%
+totalGrupo <- totalLojaGrupo %>%
   group_by(grupo) %>%
   summarise(
     valor.venda = sum(valor.venda)
   )
 
-vendas.porcentagem <- total.loja.grupo %>%
-  inner_join(total.grupo, by = "grupo") %>% 
+vendasPorcentagem <- totalLojaGrupo %>%
+  inner_join(totalGrupo, by = "grupo") %>%
   mutate(loja, grupo, porcentagem = valor.venda.x*100/valor.venda.y) %>%
   select(loja, grupo, porcentagem)
 
-vendas.grupo.loja.ativo <- vendas.grupo.loja %>%
-  inner_join(vendas.porcentagem, by = c("grupo", "loja")) %>%
+vendasGrupoLojaAtivo <- vendasGrupoLoja %>%
+  inner_join(vendasPorcentagem, by = c("grupo", "loja")) %>%
   filter(porcentagem >= 1.00) %>%
   select(data, loja, grupo, quant.venda, valor.venda) %>%
   group_by(data, grupo, loja) %>%
@@ -107,7 +104,7 @@ vendas.grupo.loja.ativo <- vendas.grupo.loja %>%
     valor.venda = sum(valor.venda)
   )
 
-vendas.grupo.todasloja <- vendas.grupo.loja.ativo %>%
+vendasGrupoTodasLoja <- vendasGrupoLojaAtivo %>%
   select(data, loja, grupo, quant.venda, valor.venda) %>%
   group_by(data, grupo, loja = "TODAS") %>%
   summarise(
@@ -115,9 +112,10 @@ vendas.grupo.todasloja <- vendas.grupo.loja.ativo %>%
     valor.venda = sum(valor.venda)
   )
 
-vendas.grupo <- rbind(vendas.grupo.loja.ativo, vendas.grupo.todasloja) %>%
+vendasGrupo <- rbind(vendasGrupoLojaAtivo, vendasGrupoTodasLoja) %>%
   mutate(loja = as.factor(loja))
 
-saveRDS(vendas.grupo, "vendas.grupo.rds")
+saveRDS(vendasGrupo, "vendas.grupo.rds")
+
 
 
