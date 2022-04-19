@@ -35,6 +35,7 @@ formatSYM <- function(sym, pat = "-") {
 # Processamento
 ################################################################################
 
+# Ler o data frame com as séries temporais de todos os registros de vendas
 vendasGrupo <- readRDS("vendas.grupo.rds") %>%
   filter(data >= yearmonth('2009-01') &
            data <= yearmonth('2021-12'))
@@ -95,24 +96,7 @@ listaTreino <- foreach(row = seq_len(nrow(lojaGrupos)), .combine = 'rbind') %do%
   )
 }
 
-vendasQuantTs <- ts(serieVenda$quant, start = treinoStart, end = testeEnd, frequency = 12)
-vendasQuantTreino <- window(vendasQuantTs, start = treinoStart, end = treinoEnd)
-vendasQuantTeste <- window(vendasQuantTs, start = testeStart, end = testeEnd)
-vendasQuantIsolamento <- window(vendasQuantTs, start = isolamentoStart, end = isolamentoEnd)
+warnings()
 
-vendasValorTs <- ts(serieVenda$valor, start = treinoStart, end = testeEnd, frequency = 12)
-vendasValorTreino <- window(vendasValorTs, start = treinoStart, end = treinoEnd)
-vendasValorTeste <- window(vendasValorTs, start = testeStart, end = testeEnd)
-vendasValorIsolamento <- window(vendasValorTs, start = isolamentoStart, end = isolamentoEnd)
+saveRDS(listaTreino, "lista.treino.rds")
 
-list <- list(
-  vendasQuantTs = ts(serieVenda$quant, start = treinoStart, end = testeEnd, frequency = 12),
-  vendasQuantTreino = window(vendasQuantTs, start = treinoStart, end = treinoEnd),
-  vendasQuantTeste = window(vendasQuantTs, start = testeStart, end = testeEnd),
-  vendasQuantIsolamento = window(vendasQuantTs, start = isolamentoStart, end = isolamentoEnd),
-
-  vendasValorTs = ts(serieVenda$valor, start = treinoStart, end = testeEnd, frequency = 12),
-  vendasValorTreino = window(vendasValorTs, start = treinoStart, end = treinoEnd),
-  vendasValorTeste = window(vendasValorTs, start = testeStart, end = testeEnd),
-  vendasValorIsolamento = window(vendasValorTs, start = isolamentoStart, end = isolamentoEnd)
-)
