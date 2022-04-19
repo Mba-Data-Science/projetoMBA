@@ -30,7 +30,6 @@ formatSYM <- function(sym, pat = "-") {
            as.numeric())
 }
 
-
 ################################################################################
 # Processamento
 ################################################################################
@@ -39,9 +38,6 @@ formatSYM <- function(sym, pat = "-") {
 vendasGrupo <- readRDS("vendas.grupo.rds") %>%
   filter(data >= yearmonth('2009-01') &
            data <= yearmonth('2021-12'))
-
-grupoPar <- 'Acessórios'
-lojaPar <- 'Loja 01'
 
 treinoStart <- c(2009, 1)
 treinoEnd <- c(2020, 2)
