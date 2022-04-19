@@ -12,25 +12,6 @@ library(foreach)
 library(future)
 
 ################################################################################
-# Funções
-################################################################################
-
-#' @title transforma um vetor no formato c(ano, mes) em string no formato 
-#' "mes/ano"
-formatCYM <- function(cym) {
-  return(paste0(cym[2], '/', cym[1]))
-}
-
-#' @title transforma um vetor no formato "mes-ano" em string no formato
-#' c(ano, mes)
-formatSYM <- function(sym, pat = "-") {
-  return(sym %>%
-           str_split(pat) %>%
-           unlist() %>%
-           as.numeric())
-}
-
-################################################################################
 # Processamento
 ################################################################################
 
